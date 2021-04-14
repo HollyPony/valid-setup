@@ -1,0 +1,26 @@
+{
+  "name": "valid-setup",
+  "version": "1.0.0",
+  "description": "auto-install packages and rebuild if changes happen",
+  "main": "index.js",
+  "bin": {
+    "valid-setup": "./cli.js"
+  },
+  "files": [
+    "index.js",
+    "cli.js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/HollyPony/valid-setup.git"
+  },
+  "keywords": [
+    "npm"
+  ],
+  "author": "Arthur Agombart<arthur.agombart@gmail.com>",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/HollyPony/valid-setup/issues"
+  },
+  "homepage": "https://github.com/HollyPony/valid-setup#readme"
+}
