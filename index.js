@@ -7,7 +7,7 @@ exports.validSetup = function () {
   let currentNpmVersion = null
 
   async function getStoredInfos () {
-    fs.statSync('package.lastSetup')
+    fs.statSync('package.lastSetup') // TODO: this command is for `catch` if file not exist. Should found another way to do this. `createReadStream` not goes in catch since it's a pipe error.
     const readstream = fs.createReadStream('package.lastSetup', { encoding: 'utf8' })
     const lineReader = require('readline').createInterface({
       input: readstream,
