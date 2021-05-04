@@ -2,12 +2,11 @@ exports.validSetup = function () {
   const fs = require('fs')
 
   let lastPackageModified = null
-  let currentPakcageModified = null
+  let lastLockfileModified = null
   let lastNpmVersion = null
-  let currentNpmVersion = null
 
   async function getStoredInfos () {
-    fs.statSync('package.lastSetup') // TODO: this command is for `catch` if file not exist. Should found another way to do this. `createReadStream` not goes in catch since it's a pipe error.
+    fs.statSync('package.lastSetup')
     const readstream = fs.createReadStream('package.lastSetup', { encoding: 'utf8' })
     const lineReader = require('readline').createInterface({
       input: readstream,
@@ -20,44 +19,56 @@ exports.validSetup = function () {
     await require('events').once(lineReader, 'close')
 
     lastPackageModified = lines[0]
-    lastNpmVersion = lines[1]
+    lastLockfileModified = lines[1]
+    lastNpmVersion = lines[2]
   }
 
   const getPackageModifiedDate = () => {
-    currentPakcageModified = String(fs.statSync('package.json').mtime.getTime())
+    try {
+      return String(fs.statSync('package.json').mtime.getTime())
+    } catch (e) {
+      return ''
+    }
+  }
+
+  const getLockfileModifiedDate = () => {
+    try {
+      return String(fs.statSync('package-lock.json').mtime.getTime())
+    } catch (e) {
+      return ''
+    }
   }
 
   const getCurrentNpmVersion = () => {
-    currentNpmVersion = require('child_process').execSync('npm -v').toString().trim()
+    return require('child_process').execSync('npm -v').toString().trim()
   }
 
   function compute () {
-    let updated = false
-    if (!lastPackageModified || currentPakcageModified !== lastPackageModified) {
+    let currentPakcageModified = getPackageModifiedDate()
+    let currentLockfileModified = getLockfileModifiedDate()
+    let npmVersion = getCurrentNpmVersion()
+
+    if (!currentLockfileModified || !lastPackageModified || (currentPakcageModified !== lastPackageModified)) {
       console.log('Updating ...')
       require('child_process').execSync('npm i', { stdio: 'inherit' })
-      currentPakcageModified = String(fs.statSync('package.json').mtime.getTime())
-      updated = true
+    } else if (currentLockfileModified !== lastLockfileModified) {
+      console.log('Updating ...')
+      require('child_process').execSync('npm ci', { stdio: 'inherit' })
     }
 
-    if (!lastNpmVersion || lastNpmVersion !== currentNpmVersion) {
+    if (!lastNpmVersion || lastNpmVersion !== npmVersion) {
       console.log('Rebuild ...')
       require('child_process').execSync('npm rebuild', { stdio: 'inherit' })
-      updated = true
     }
 
-    if (updated) {
-      fs.writeFileSync('package.lastSetup', `${currentPakcageModified}\n${currentNpmVersion}`, { encoding: 'utf8' })
-    }
+    fs.writeFileSync(
+      'package.lastSetup',
+      [getPackageModifiedDate(), getLockfileModifiedDate(), npmVersion].join('\n'),
+      { encoding: 'utf8' }
+    )
 
     console.log('Your system is up to date')
   }
 
-  Promise.all([
-    getStoredInfos(),
-    getPackageModifiedDate(),
-    getCurrentNpmVersion(),
-  ])
-    .catch(err => {})
-    .then(() => compute())
+  return getStoredInfos().catch(() => {}).then(compute)
 }
