@@ -44,16 +44,16 @@ exports.validSetup = function () {
   }
 
   function compute () {
-    let currentPakcageModified = getPackageModifiedDate()
-    let currentLockfileModified = getLockfileModifiedDate()
+    let pakcageModified = getPackageModifiedDate()
+    let lockfileModified = getLockfileModifiedDate()
     let npmVersion = getCurrentNpmVersion()
 
-    if (!currentLockfileModified || !lastPackageModified || (currentPakcageModified !== lastPackageModified)) {
+    const update =
+      (lockfileModified && lockfileModified !== lastLockfileModified && 'ci') ||
+      ((!lockfileModified || pakcageModified !== lastPackageModified) && 'install')
+    if (update) {
       console.log('Updating ...')
-      require('child_process').execSync('npm i', { stdio: 'inherit' })
-    } else if (currentLockfileModified !== lastLockfileModified) {
-      console.log('Updating ...')
-      require('child_process').execSync('npm ci', { stdio: 'inherit' })
+      require('child_process').execSync(`npm ${update}`, { stdio: 'inherit' })
     }
 
     if (!lastNpmVersion || lastNpmVersion !== npmVersion) {

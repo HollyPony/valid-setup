@@ -1,6 +1,6 @@
 {
   "name": "valid-setup",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "auto-install packages and rebuild if changes happen",
   "main": "index.js",
   "bin": {
