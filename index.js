@@ -1,74 +1,70 @@
-exports.validSetup = function () {
-  const fs = require('fs')
+const fs = require('fs')
+const crypto = require('crypto')
 
-  let lastPackageModified = null
-  let lastLockfileModified = null
-  let lastNpmVersion = null
+const lockfileName = 'package.lock'
 
-  async function getStoredInfos () {
-    fs.statSync('package.lastSetup')
-    const readstream = fs.createReadStream('package.lastSetup', { encoding: 'utf8' })
-    const lineReader = require('readline').createInterface({
-      input: readstream,
-      crlfDelay: Infinity
-    })
+const npmVersion = require('child_process').execSync('npm -v').toString().trim()
 
-    const lines = []
-    lineReader.on('line', line => { lines.push(line) })
+function validSetup () {
+  const lock = readLockfile()
 
-    await require('events').once(lineReader, 'close')
+  let pakcageChecksum = getChecksum('package.json')
+  let lockfileChecksum = getChecksum('package-lock.json')
 
-    lastPackageModified = lines[0]
-    lastLockfileModified = lines[1]
-    lastNpmVersion = lines[2]
-  }
+  if (!lockfileChecksum || pakcageChecksum !== lock.packageChecksum) {
+    console.log('Updating ...')
+    require('child_process').execSync(`npm install`, { stdio: 'inherit' })
 
-  const getPackageModifiedDate = () => {
-    try {
-      return String(fs.statSync('package.json').mtime.getTime())
-    } catch (e) {
-      return ''
+    const newLockfileChecksum = getChecksum('package-lock.json')
+    if (lockfileChecksum === newLockfileChecksum) {
+      require('child_process').execSync(`npm ci`, { stdio: 'inherit' })
     }
+  } else if (lockfileChecksum !== lock.lockfileChecksum) {
+    console.log('Updating ...')
+    require('child_process').execSync(`npm ci`, { stdio: 'inherit' })
   }
 
-  const getLockfileModifiedDate = () => {
-    try {
-      return String(fs.statSync('package-lock.json').mtime.getTime())
-    } catch (e) {
-      return ''
-    }
+  if (!lock.npmVersion || lock.npmVersion !== npmVersion) {
+    console.log('Rebuild ...')
+    require('child_process').execSync('npm rebuild', { stdio: 'inherit' })
   }
 
-  const getCurrentNpmVersion = () => {
-    return require('child_process').execSync('npm -v').toString().trim()
-  }
+  persistLockfile()
 
-  function compute () {
-    let pakcageModified = getPackageModifiedDate()
-    let lockfileModified = getLockfileModifiedDate()
-    let npmVersion = getCurrentNpmVersion()
-
-    const update =
-      (lockfileModified && lockfileModified !== lastLockfileModified && 'ci') ||
-      ((!lockfileModified || pakcageModified !== lastPackageModified) && 'install')
-    if (update) {
-      console.log('Updating ...')
-      require('child_process').execSync(`npm ${update}`, { stdio: 'inherit' })
-    }
-
-    if (!lastNpmVersion || lastNpmVersion !== npmVersion) {
-      console.log('Rebuild ...')
-      require('child_process').execSync('npm rebuild', { stdio: 'inherit' })
-    }
-
-    fs.writeFileSync(
-      'package.lastSetup',
-      [getPackageModifiedDate(), getLockfileModifiedDate(), npmVersion].join('\n'),
-      { encoding: 'utf8' }
-    )
-
-    console.log('Your system is up to date')
-  }
-
-  return getStoredInfos().catch(() => {}).then(compute)
+  console.log('Your system is up to date')
 }
+
+function getChecksum(file, algorithm, encoding) {
+  try {
+    const str = fs.readFileSync(file, { encoding: 'utf8' })
+    return crypto
+        .createHash(algorithm || 'md5')
+        .update(str, 'utf8')
+        .digest(encoding || 'hex');
+  } catch (e) { return '' }
+}
+
+function readLockfile () {
+  try {
+    const lines = fs.readFileSync(lockfileName, { encoding: 'utf8' }).split('\n')
+
+    return {
+      packageChecksum: lines[0],
+      lockfileChecksum: lines[1],
+      npmVersion: lines[2],
+    }
+  } catch (e) { return {} }
+}
+
+function persistLockfile () {
+  return fs.writeFileSync(lockfileName,
+    [
+      getChecksum('package.json'),
+      getChecksum('package-lock.json'),
+      npmVersion,
+    ].join('\n'),
+    { encoding: 'utf8' }
+  )
+}
+
+exports.validSetup = validSetup

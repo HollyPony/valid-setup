@@ -1,10 +1,13 @@
 {
   "name": "valid-setup",
-  "version": "1.2.0",
+  "version": "2.0.0",
   "description": "auto-install packages and rebuild if changes happen",
   "main": "index.js",
   "bin": {
     "valid-setup": "./cli.js"
+  },
+  "scripts": {
+    "exec": "./cli.js"
   },
   "files": [
     "index.js",
